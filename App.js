@@ -20,7 +20,7 @@ import Episodes from "./components/screens/Episodes.js";
 import Settings from "./components/screens/Settings.js";
 
 //contexts
-import { SubsContext, SubsListContext, RssContext, ModalContext, DownloadsContext, PlayControlContext } from "./components/Contexts.js";
+import { SubsContext, SubsListContext, ModalContext, DownloadsContext, PlayControlContext } from "./components/Contexts.js";
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
@@ -33,7 +33,6 @@ export default class App extends React.PureComponent {
     super();
     this.state = {
       files: [],
-      rssObject: null,
       response: '',
       nowPlaying: null,
       playerReady: false,
@@ -156,10 +155,6 @@ export default class App extends React.PureComponent {
     await this.playbackObject.setPositionAsync( millis );
   }
 
-  updateRss = (rssObject) => {
-    this.setState({ rssObject: {...rssObject} });
-  }
-
   setModal = (modal) => {
     this.setState({activeModal: modal});
   }
@@ -180,45 +175,41 @@ export default class App extends React.PureComponent {
           importOPML: this.state.importOPML
         }}>
           <SubsListContext.Provider value={this.state.sublist}>
-            <RssContext.Provider value={{
-              rssObject: this.state.rssObject,
-              updateRss: this.updateRss }}>
-              <ModalContext.Provider value={{
-                  activeModal: this.state.activeModal,
-                  setModal: this.setModal,
-                  epListObj: this.state.epListObj,
-                  updateEpList: this.updateEpList }}>
-                <PlayControlContext.Provider value={{
-                  play: this.playEpisode,
-                  pause: this.pauseToggle
-                }}>
-                  <View style={styles.container}>
-                    <AppModal modalId={1}>
-                      <EpisodeList playEpisode={this.playEpisode}/>
-                    </AppModal>
-                    <NavigationContainer>
-                      <Tab.Navigator lazy="true">
-                        <Tab.Screen name="Add New" component={SubscribeToCast}/>
-                        <Tab.Screen name="Subscriptions" component={SubscriptionList}/>
-                        <Tab.Screen name="Episodes" component={Episodes}/>
-                        <Tab.Screen name="Settings" component={Settings}/>
-                      </Tab.Navigator>
-                    </NavigationContainer>
-                    <Controls
-                        play={this.playEpisode}
-                        pause={this.pauseToggle}
-                        isLoaded={this.state.isLoaded}
-                        scrubForward={this.scrubForward}
-                        scrubBack={this.scrubBack}
-                        setPosition={this.setPosition}
-                        elapsed={this.state.elapsed}
-                        duration={this.state.duration}
-                        isPlaying={this.state.isPlaying}
-                    />
-                  </View>
-                </PlayControlContext.Provider>
-              </ModalContext.Provider>
-            </RssContext.Provider>
+            <ModalContext.Provider value={{
+                activeModal: this.state.activeModal,
+                setModal: this.setModal,
+                epListObj: this.state.epListObj,
+                updateEpList: this.updateEpList }}>
+              <PlayControlContext.Provider value={{
+                play: this.playEpisode,
+                pause: this.pauseToggle
+              }}>
+                <View style={styles.container}>
+                  <AppModal modalId={1}>
+                    <EpisodeList playEpisode={this.playEpisode}/>
+                  </AppModal>
+                  <NavigationContainer>
+                    <Tab.Navigator lazy="true">
+                      <Tab.Screen name="Add New" component={SubscribeToCast}/>
+                      <Tab.Screen name="Subscriptions" component={SubscriptionList}/>
+                      <Tab.Screen name="Episodes" component={Episodes}/>
+                      <Tab.Screen name="Settings" component={Settings}/>
+                    </Tab.Navigator>
+                  </NavigationContainer>
+                  <Controls
+                      play={this.playEpisode}
+                      pause={this.pauseToggle}
+                      isLoaded={this.state.isLoaded}
+                      scrubForward={this.scrubForward}
+                      scrubBack={this.scrubBack}
+                      setPosition={this.setPosition}
+                      elapsed={this.state.elapsed}
+                      duration={this.state.duration}
+                      isPlaying={this.state.isPlaying}
+                  />
+                </View>
+              </PlayControlContext.Provider>
+            </ModalContext.Provider>
           </SubsListContext.Provider>
         </SubsContext.Provider>
       </DownloadsContext.Provider>

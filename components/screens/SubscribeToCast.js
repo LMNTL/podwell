@@ -1,75 +1,149 @@
 import React, { useState, useContext } from 'react';
 import * as rssParser from 'react-native-rss-parser';
-import { Text, TextInput, Button, StyleSheet, View, Pressable } from 'react-native';
+import { Text, TextInput, Button, StyleSheet, View, Pressable, Keyboard } from 'react-native';
+import { Tab } from 'react-native-elements';
+import * as FileSystem from 'expo-file-system';
+
 import PodcastCard from '../PodcastCard.js';
 import { SubsContext, RssContext } from '../Contexts.js';
+import SearchResults from '../SearchResults.js';
 
 const SubscribeToCast = () => {
   const [val, setVal] = useState("https://www.giantbomb.com/podcast-xml/beastcast/");
   const [status, setStatus] = useState("");
+  const [searchMode, setSearchMode] = useState(0);
+  const [results, setResults] = useState([]);
 
   const subsContext = useContext(SubsContext);
-  const rssContext = useContext(RssContext);
 
-  const trySubscribe = async (event) => {
-    let result = await subsContext.subscribe(rssContext.rssObject, val);
+  const trySubscribe = async (rss) => {
+    let rssObject = rss;
+    if(typeof rss == "string"){//if we just have a URI, fetch the feed before subscribing
+      rssObject = await fetchInfo(rss);
+    }
+    let result = await subsContext.subscribe(rssObject, val);
     if(!result){
       setStatus("Subscribed!");
     }
     else {
       setStatus("error: " + result);
-    }
+    }    
   }
 
-
-  const tryUnsubscribe = async (event) => {
-    let result = await subsContext.unsubscribe(rssContext.rssObject.uri);
+  const tryUnsubscribe = async (uri) => {
+    let result = await subsContext.unsubscribe(uri);
     if(result === true){
-      setStatus("Unsubscribed to " + rssContext.rssObject.title);
+      setStatus("Unsubscribed to " + uri);
     }
     else {
       setStatus("error: " + result);
     }
   }
 
-  const fetchInfo = (uri, cors=false) => {
-    console.log(subsContext)
-    const CORS_PROXY = "https://cors-anywhere.herokuapp.com/";
-    fetch(cors ? CORS_PROXY + uri : uri)
-      .then((response) => response.text())
-      .then((responseData) => rssParser.parse(responseData))
-      .then((rss) => {
-        if(rss && rss.hasOwnProperty("items")){
-          console.log("fetch success!");
-          rssContext.updateRss({...rss, uri: uri});
-          return true;
-        }
-        else {
-          setStatus("some error");
-        }
-      })
-      .catch((err) => {
-        if(cors){
-          setStatus(`Error: ${err.message}`);
-        }
-      });
-    return false;
+  const subscribeButton = async (uri) => {
+    if(subsContext.contains(uri)){
+      await tryUnsubscribe();
+    } else {
+      await trySubscribe(uri);
+    }
   }
 
-  const onSubmitEditing = (event) => {
-    console.log("fetching URL: " + val)
-    
-    if(!fetchInfo(val)){
-      console.log("retrying with cors proxy");
-      fetchInfo(val, true);
+  const searchItunes = async () => {
+    let searchURI = "https://itunes.apple.com/search?media=podcast&term=";
+    searchURI += encodeURI(val.split(" ").join("+"));
+    try{
+      const responseURI = await FileSystem.downloadAsync(searchURI, FileSystem.cacheDirectory + 'itunes.txt');
+      const status = await FileSystem.getInfoAsync(responseURI.uri);
+      const responseString = await FileSystem.readAsStringAsync(
+        responseURI.uri
+      );
+      let response = JSON.parse(responseString);
+      response = response.results.map((el) => {
+        return {
+          title: el.collectionName,
+          author: el.artistName,
+          uri: el.feedUrl,
+          image: {
+            url: el.artworkUrl100,
+            width: 100,
+            height: 100
+          }
+        };
+      });
+      setResults(response);
+    } catch(error) {
+      console.log(`itunes error: ${error.message}`)
     }
+  }
+
+  const fetchInfo = async (uri, cors=false) => {
+    const CORS_PROXY = "https://cors-anywhere.herokuapp.com/";
+    let response = await fetch(cors ? CORS_PROXY + uri : uri);
+    try{
+      response = await response.text();
+      const rss = await rssParser.parse(response);
+      if(rss && rss.hasOwnProperty("items")){
+        console.log("fetch success!");
+        return {...rss, uri: uri};
+      }
+      else {
+        throw new Error("RSS response empty");
+      }
+    }
+    catch(e){
+      if(!cors){
+        return await fetchInfo(uri, true);
+      } else {
+        setStatus("Error: " + e.message);
+        return false;
+      }
+    }
+  }
+
+  const moreInfo = async (uri) => {
+    console.log("fetching more info for " + uri)
+    const feed = await fetchInfo(uri);
+    console.log(feed);
+    const updateIndex = results.findIndex(el => el.uri == uri);
+    if(updateIndex >= 0){
+      const newResults = [...results];
+      newResults[updateIndex] = feed;
+      console.log(newResults)
+      setResults(newResults);
+    }
+  }
+
+  const onSubmitEditing = async (event) => {
+    Keyboard.dismiss();
+    switch(searchMode){
+      case 0: //rss url
+        setResults( [ await fetchInfo(val) ] );
+        break;
+      case 1: //itunes
+        await searchItunes();
+        break;
+      case 2: //match similar podcasts
+        //implement me!
+        break;
+      default:
+        break;
+    }
+    
+  }
+
+  const onChangeTab = (event) => {
+    setSearchMode(event);
+    setVal("");
+    setResults([]);
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.paragraph}>
-            Put the RSS feed in below:
-      </Text>
+      <Tab value={searchMode} onChange={onChangeTab}>
+        <Tab.Item title="RSS" />
+        <Tab.Item title="iTunes" />
+        <Tab.Item title="Similar" />
+      </Tab>
       <TextInput
         style={styles.paragraph, styles.textInput}
         onChangeText={setVal}
@@ -82,27 +156,15 @@ const SubscribeToCast = () => {
         color="#841584"
         disabled={!val}
       />
-      {rssContext.rssObject != null && subsContext.contains(rssContext.rssObject.uri) ? (
-        <Button
-          onPress={tryUnsubscribe}
-          title="Unsubscribe"
-          color="#841584"
-        />
-      ) : (
-        <Button
-          onPress={trySubscribe}
-          title="Subscribe"
-          color="#841584"
-          disabled={rssContext.rssObject == null}
-        />
-      )}
       <Text style={styles.paragraph}>{status ? status : null}</Text>
-      {rssContext.rssObject != null ? (
-        <PodcastCard rssObject={rssContext.rssObject}/>
-      ) : null}
+      <SearchResults
+        results={results}
+        more={moreInfo}
+        sub={trySubscribe}
+        unsub={tryUnsubscribe}
+      />
     </View>
   );
-
 }
 
 export default SubscribeToCast;

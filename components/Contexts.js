@@ -10,11 +10,6 @@ const SubsContext = React.createContext({
 
 const SubsListContext = React.createContext([]);
 
-const RssContext = React.createContext({
-  rssObject: {},
-  updateRss: () => {}
-});
-
 const ModalContext = React.createContext({
   activeModal: 0,
   setModal: ()=>{},
@@ -40,4 +35,4 @@ const NowPlayingContext = React.createContext({
   setNowPlaying: () => {},
 });
 
-export { SubsContext, SubsListContext, RssContext, ModalContext, DownloadsContext, PlayControlContext };
+export { SubsContext, SubsListContext, ModalContext, DownloadsContext, PlayControlContext };

@@ -167,6 +167,7 @@ class File{
     this.rssObject = options.rssObject ? options.rssObject : null;
     this.uri = options.uri;
     this.fileLocation = options.fileLocation;
+    this.filename = options.filename;
     this.expectedSize = options.expectedSize ? options.expectedSize : -1;
     this.size = options.size ? options.size: -1;
     this.timestamp = options.timestamp ? options.timestamp : Date.now();
